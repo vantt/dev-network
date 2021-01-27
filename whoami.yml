@@ -1,0 +1,93 @@
+# docker network create --driver=bridge --subnet=172.21.0.0/16 --gateway=172.21.0.1 https-proxy
+# docker run -d --restart=always --name=dnsmasq --network=https-proxy --cap-add=NET_ADMIN -p 127.0.0.53:53:53/tcp -p 127.0.0.53:53:53/udp -p 127.0.0.1:53:53/tcp -p 127.0.0.1:53:53/udp -p 192.168.68.171:53:53/tcp -p 192.168.68.171:53:53/udp andyshinn/dnsmasq:2.78 --address=/mio/192.168.68.178 --server=192.168.68.207 --server=192.168.68.206
+# MYIP=`ipconfig getifaddr en0` \
+# docker run -d --restart=always --name=dnsmasq --network=https-proxy --cap-add=NET_ADMIN -p 127.0.0.53:53:53/tcp -p 127.0.0.53:53:53/udp -p 127.0.0.1:53:53/tcp -p 127.0.0.1:53:53/udp -p $MYIP:53:53/tcp -p 192.168.68.171:53:53/udp andyshinn/dnsmasq:2.78 --address=/mio/$MYIP --server=8.8.8.8 --server=8.8.4.4
+version: "3.7"
+
+networks:
+    networkA:
+        driver: bridge
+    networkB:
+        driver: bridge    
+    front-proxy:
+        external: true
+        name: https-proxy
+
+services:
+    # a1 load balanced
+    whoami_a1: # a1 load balanced
+        image: containous/whoami:v1.5.0
+        environment:
+          WHOAMI_NAME: whoami_a
+        networks:
+            networkA: {}
+            front-proxy: {}
+        command: --port 12345    
+        labels:
+            # https://docs.traefik.io/reference/dynamic-configuration/docker/
+            # https://docs.traefik.io/routing/providers/docker/
+            - traefik.enable=true # expose this container through traefik
+            - traefik.http.services.whoAmI_A.loadbalancer.server.port=12345
+
+            # http route, redirect to https
+            # - traefik.http.routers.whoAmI_A_http.entrypoints=http
+            # - traefik.http.routers.whoAmI_A_http.rule=Host(`whoamiA.dev.mz`)
+            # - traefik.http.routers.whoAmI_A_http.middlewares=force-https@file
+
+            # https route
+            - traefik.http.routers.whoAmI_A_https.entrypoints=https
+            - traefik.http.routers.whoAmI_A_https.rule=Host(`whoamiA.dev.mz`)
+            - traefik.http.routers.whoAmI_A_https.tls=true
+            - traefik.http.routers.whoAmI_A_https.service=whoAmI_A
+    
+    # a2 load balanced
+    whoami_a2:
+        image: containous/whoami:v1.5.0
+        environment:
+          WHOAMI_NAME: whoami_a
+        networks:
+            networkA: {}
+            front-proxy: {}
+        command: --port 12345    
+        labels:
+            # https://docs.traefik.io/reference/dynamic-configuration/docker/
+            # https://docs.traefik.io/routing/providers/docker/
+            - traefik.enable=true # expose this container through traefik
+            - traefik.http.services.whoAmI_A.loadbalancer.server.port=12345
+
+            # http route, redirect to https
+            # - traefik.http.routers.whoAmI_A_http.entrypoints=http
+            # - traefik.http.routers.whoAmI_A_http.rule=Host(`whoamiA.dev.mz`)
+            # - traefik.http.routers.whoAmI_A_http.middlewares=force-https@file
+
+            # https route
+            - traefik.http.routers.whoAmI_A_https.entrypoints=https
+            - traefik.http.routers.whoAmI_A_https.rule=Host(`whoamiA.dev.mz`)
+            - traefik.http.routers.whoAmI_A_https.tls=true
+            - traefik.http.routers.whoAmI_A_https.service=whoAmI_A
+
+    whoami_b:
+        image: containous/whoami:v1.5.0
+        environment:
+          WHOAMI_NAME: whoami_b
+        networks:
+            networkB: {}
+            front-proxy: {}
+        command: --port 12345
+
+        labels:
+            # https://docs.traefik.io/reference/dynamic-configuration/docker/
+            # https://docs.traefik.io/routing/providers/docker/
+            - traefik.enable=true # expose this container through traefik
+            - traefik.http.services.whoAmI_B.loadbalancer.server.port=12345
+
+            # http route, redirect to https
+            # - traefik.http.routers.whoAmI_B_http.entrypoints=http
+            # - traefik.http.routers.whoAmI_B_http.rule=Host(`whoamiB.dev.mz`)
+            # - traefik.http.routers.whoAmI_B_http.middlewares=force-https@file
+
+            # https route
+            - traefik.http.routers.whoAmI_B_https.entrypoints=https
+            - traefik.http.routers.whoAmI_B_https.rule=Host(`whoamiB.dev.mz`)
+            - traefik.http.routers.whoAmI_B_https.tls=true
+            - traefik.http.routers.whoAmI_B_https.service=whoAmI_B

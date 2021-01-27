@@ -1,0 +1,63 @@
+# https://www.digitalocean.com/community/tutorials/how-to-use-traefik-v2-as-a-reverse-proxy-for-docker-containers-on-ubuntu-20-04
+# https://docs.traefik.io/getting-started/quick-start/
+# https://docs.traefik.io/reference/static-configuration/file/
+# https://docs.traefik.io/reference/dynamic-configuration/docker/
+
+######################################################################################################
+#
+# docker network create --driver=bridge --subnet=172.21.0.0/16 --gateway=172.21.0.1 https-proxy
+#
+######################################################################################################
+
+version: "3.7"
+
+networks:
+  proxy:
+    external: true
+    name: https-proxy
+
+services:
+  # docker run -d --restart=always --name=dnsmasq --network=https-proxy --cap-add=NET_ADMIN \
+  #     -p 127.0.0.53:53:53/tcp -p 127.0.0.53:53:53/udp \
+  #     -p 127.0.0.1:53:53/tcp -p 127.0.0.1:53:53/udp \
+  #     -p $MY_IP:53:53/tcp -p $MY_IP:53:53/udp \
+  #     andyshinn/dnsmasq:2.78 --address=/mz/$MY_IP --server=1.1.1.1 --server=1.0.0.1
+
+  dnsmasq:
+    image: andyshinn/dnsmasq:2.78
+    restart: always
+    command:
+      - "--address=/mz/$MY_IP" # .mz domain will on MY_IP
+      - "--server=1.1.1.1" # upstream DNS
+      - "--server=1.0.0.1" # upstream DNS
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - /etc/hosts:/etc/hosts
+    ports:
+      # - "53:53/tcp"
+      # - "53:53/udp"
+      # NOTE - Comment out phần setting này khi sử dụng macos
+      #-------------------------
+      # - "127.0.0.53:53:53/tcp"
+      # - "127.0.0.53:53:53/udp"
+      # - "127.0.0.1:53:53/tcp"
+      # - "127.0.0.1:53:53/udp"
+      #-------------------------
+      - "10.254.254.254:53:53/tcp"
+      - "10.254.254.254:53:53/udp"
+    networks:
+      proxy: {}
+
+  traefik:
+    image: traefik:v2.3.1 # The official v2 Traefik docker image
+    restart: always
+    ports:
+      - 80:80 # The HTTP port
+      - 443:443
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./etc/traefik/:/etc/traefik/
+    networks:
+      proxy: {}

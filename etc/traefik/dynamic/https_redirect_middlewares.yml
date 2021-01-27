@@ -1,0 +1,27 @@
+#################################
+### REDIRECT MIDDLEWARE
+#################################
+http:
+  middlewares:
+    force-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+  ################################
+  # GLOBAL REDIRECT ROUTER
+  ################################
+  routers:
+    global-redirects:
+      entryPoints:
+        - http
+      middlewares:
+        - force-https
+      rule: "HostRegexp(`{host:.+}`)"
+      service: "noop@internal"
+
+      # To avoid path overlap, routes are sorted, by default, in descending order using rules length.
+      # The priority is directly equal to the length of the rule, and so the longest length has the highest priority.
+      # A value of 0 for the priority is ignored: priority = 0 means that the default rules length sorting is used.
+      # priority = 2 will overide priority = 1
+      priority: 1

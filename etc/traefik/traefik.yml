@@ -1,0 +1,129 @@
+#
+# https://joshuaavalon.io/setup-traefik-v2-step-by-step
+# https://containo.us/blog/traefik-2-tls-101-23b4fbee81f1/
+# https://www.digitalocean.com/community/tutorials/how-to-use-traefik-as-a-reverse-proxy-for-docker-containers-on-ubuntu-16-04
+#
+#
+# IMPORTANT:
+#    - Must understand Static config vs Dynamic Config
+#    - V1 configuration will totally different with V2 Configuration
+#
+#    - https://doc.traefik.io/traefik/getting-started/configuration-overview/
+#
+
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+log:
+  level: DEBUG
+
+entryPoints:
+  http: # this is a unique-name, not a convention
+    address: ":80"
+  https: # this is a unique-name, not a convention
+    address: ":443"
+
+serversTransport:
+  #
+  # If non-zero, maxIdleConnsPerHost controls the maximum idle (keep-alive) connections to keep per-host.
+  #
+  # https://doc.traefik.io/traefik/routing/overview/#maxidleconnsperhost
+  #
+  # optional, default = 2
+  # MaxIdleConnsPerHost = -1 mean to disable persistence conneciton
+  #
+  # IMPORTANT: set MaxIdleConnsPerHost = -1 solve randomly 502 Bad Response
+  #            must tunning on Production
+  #
+  maxIdleConnsPerHost: -1
+
+  forwardingTimeouts:
+    dialTimeout: 0
+    responseHeaderTimeout: 0
+    idleConnTimeout: 0
+
+  # insecureSkipVerify: true
+  #
+  # rootCAs is the list of certificates (as file paths, or data bytes)
+  # that will be set as Root Certificate Authorities when using a self-signed TLS certificate.
+  #
+  # rootCAs:
+  #   - foo.crt
+  #   - bar.crt
+  #
+
+providers:
+  file:
+    watch: true
+    directory: /etc/traefik/dynamic
+    debugLogGeneratedTemplate: true
+
+  #
+  # Docker-Provider configuration
+  #
+  # https://doc.traefik.io/traefik/v2.2/providers/docker/#provider-configuration
+  #
+  docker:
+    endpoint: unix:///var/run/docker.sock
+
+    #
+    # Expose containers by default through Traefik.
+    # If set to false, containers that don't have a traefik.enable=true label
+    # will be ignored from the resulting routing configuration.
+    #
+    exposedByDefault: false
+
+    #
+    # Traefik routes requests to the IP/Port of the matching container.
+    # When setting useBindPortIP=true, you tell Traefik to use the IP/Port attached to the container's binding
+    # instead of its inner network IP/Port
+    # useBindPortIP, optional, default=false
+    #
+    useBindPortIP: false
+
+    # Activates the Swarm Mode (instead of standalone Docker).
+    swarmMode: false
+
+    # Watch Docker Swarm events.
+    watch: true
+
+    #
+    # Defines a default docker network to use for connections to all containers.
+    # This option can be overridden on a container basis with the traefik.docker.network label.
+    #
+    # SET THIS to fix randomly 502 error response (Gateway Timeout)
+    # https://github.com/traefik/traefik/issues/3237#issuecomment-549071015
+    network: https-proxy
+
+    # Constraints is an expression that Traefik matches against the container's labels
+    # to determine whether to create any route for that container.
+    #
+    # That is to say, if none of the container's labels match the expression, no route for the container is created.
+    #
+    # With logical AND and OR, with precedence set by parentheses.
+    # constraints = "Label(`a.label.name`, `valueA`) && (Label(`another.label.name`, `valueB`) || Label(`yet.another.label.name`, `valueC`))"
+    constraints: ""
+
+api:
+  dashboard: true
+  insecure: true
+  debug: false
+
+accessLog:
+  bufferingSize: 100
+
+metrics:
+  prometheus: {}
+
+tracing:
+  serviceName: traefik
+  jaeger:
+    samplingServerURL: http://10.254.254.254:5778/sampling
+    samplingType: const
+    localAgentHostPort: 10.254.254.254:6831
+    gen128Bit: false
+    propagation: jaeger
+    traceContextHeaderName: uber-trace-id
+    collector:
+      endpoint: http://10.254.254.254:14268/api/traces?format=jaeger.thrift

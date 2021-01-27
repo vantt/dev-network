@@ -1,0 +1,9 @@
+# this configuration is for Traefik Dashboard
+http:
+  routers:
+    dashboard_https:
+      rule: Host(`traefik.fado.mz`) || Host(`traefik.dev.mz`)
+      entryPoints:
+        - https
+      service: api@internal # This is the defined name for api. You cannot change it.
+      tls: {}
