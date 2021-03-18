@@ -61,3 +61,54 @@ services:
       - ./etc/traefik/:/etc/traefik/
     networks:
       proxy: {}
+      
+  grafana:
+    image: grafana/grafana:7.3.4
+    ports:
+      - "3000:3000"
+    networks:
+      - proxy
+
+  promtail:
+    image: grafana/promtail:2.0.0
+    volumes:
+      - /var/log:/var/log
+      - ./etc/promtail:/etc/promtail/
+    ports:
+      - "9080:9080"
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    networks:
+      - proxy
+
+  loki:
+    image: grafana/loki:2.0.0
+    volumes:
+      - ./etc/loki:/etc/loki/
+      - ./chunks:/loki/chunks/
+    ports:
+      - "3100"
+      - "7946"
+    command: "-config.file=/etc/loki/loki-docker-memberlist-boltdb-shipper.yaml -target=all"
+    networks:
+      - loki
+    restart: on-failure
+
+  loki-gateway:
+    image: nginx:1.19
+    volumes:
+      - ./config/nginx-loki-gateway.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80"
+      - "3100"
+    networks:
+      - proxy
+
+  loki-frontend:
+    image: grafana/loki:2.0.0
+    volumes:
+        - ./config:/etc/loki/
+    ports:
+        - "3100"
+    command: "-config.file=/etc/loki/loki-docker-memberlist-boltdb-shipper.yaml -target=query-frontend"
+    networks:
+      - proxy
